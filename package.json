@@ -1,0 +1,9 @@
+{
+  "name": "la-multiplicueva",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve .",
+    "test": "node tests/logic.test.js"
+  }
+}
