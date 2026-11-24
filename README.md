@@ -7,6 +7,7 @@ Aplicación web estática, en español, para que un niño de 8 años practique l
 - Dos modos de recorrido: **Guiado**, con progresión bloqueada, y **Libre**, para elegir cualquier nivel sin completar los anteriores.
 - El modo **Libre** abre todo de una, sin plan de aprendizaje ni selección de tiempo.
 - El modo **Guiado** permite elegir el ritmo recién después de seleccionarlo.
+- En Ajustes, el plan y su ritmo aparecen dentro de la misma tarjeta de **Modo de recorrido** cuando está activo Guiado; en Libre se reemplazan por la indicación de que no hay plan ni días.
 - Tres etapas: descubrimiento, práctica individual y desafío combinado.
 - Umbral de dominio del 80% para desbloquear el siguiente nivel.
 - Repetición espaciada de operaciones débiles y repaso inteligente.

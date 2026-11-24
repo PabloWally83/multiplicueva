@@ -765,14 +765,15 @@
         ${settingChoice('normal', '🚀', 'Normal', '10–12 cuentas · 80%', state.difficulty, 'set-difficulty')}
         ${settingChoice('expert', '⚡', 'Experto', '12–15 cuentas · 90%', state.difficulty, 'set-difficulty')}
       </div><p class="setting-summary">Ahora: <strong>${config.label}</strong> · mínimo ${config.pass}% para avanzar.</p></section>
-      <section class="panel"><h2>Modo de recorrido</h2><p class="subtle">Define si los niveles se desbloquean en orden o se pueden elegir libremente.</p><div class="setting-choice-grid">
+      <section class="panel journey-settings-panel"><h2>Modo de recorrido</h2><p class="subtle">Define si los niveles se desbloquean en orden o se pueden elegir libremente.</p><div class="setting-choice-grid">
         ${settingChoice('guided', '🗺️', 'Guiado', 'Completá un nivel para desbloquear el siguiente.', state.progressMode, 'set-progress-mode')}
         ${settingChoice('free', '🕊️', 'Libre', 'Elegí cualquier nivel y cualquier tabla para repasar.', state.progressMode, 'set-progress-mode')}
-      </div></section>
+      </div>
+      ${state.progressMode === 'guided' ? `<div class="journey-plan-settings"><span><strong>Plan de aprendizaje</strong><br><small class="subtle">${state.planDays === 1 ? 'Todo de una vez' : `Ritmo distribuido en ${state.planDays} días`}</small></span><button class="secondary-btn compact" data-action="change-plan">Cambiar plan</button></div>` : '<div class="journey-free-note"><strong>Modo Libre</strong><span>Todo está disponible de una, sin plan, ritmo ni selección de días.</span></div>'}
+      </section>
       <section class="panel"><div class="settings-row"><span><strong>Sonidos</strong><br><small class="subtle">Melodías y efectos al responder</small></span><button class="toggle ${state.sound ? 'on' : ''}" data-action="toggle-sound" role="switch" aria-checked="${state.sound}"><span></span></button></div>
         <div class="settings-row"><span><strong>Animaciones</strong><br><small class="subtle">Fuegos artificiales y movimientos</small></span><button class="toggle ${state.animations ? 'on' : ''}" data-action="toggle-animations" role="switch" aria-checked="${state.animations}"><span></span></button></div>
         <div class="settings-row"><span><strong>Modo oscuro</strong><br><small class="subtle">Usa colores oscuros en toda la aplicación</small></span><button class="toggle ${state.darkMode ? 'on' : ''}" data-action="toggle-dark-mode" role="switch" aria-checked="${state.darkMode}"><span></span></button></div>
-        ${state.progressMode === 'guided' ? `<div class="settings-row"><span><strong>Plan de aprendizaje</strong><br><small class="subtle">${state.planDays === 1 ? 'Todo de una vez' : `Distribuido en ${state.planDays} días`}</small></span><button class="secondary-btn compact" data-action="change-plan">Cambiar</button></div>` : ''}
         <div class="settings-row"><span><strong>Reiniciar aventura</strong><br><small class="subtle">Borra el progreso de este dispositivo</small></span><button class="danger-btn" data-action="confirm-reset">Reiniciar</button></div>
       </section>`;
   }
@@ -792,7 +793,7 @@
   }
 
   function showPlanSetup(onboarding = false) {
-    planDraft = { days: state.planDays > 1 ? state.planDays : 3, mode: onboarding ? null : (state.progressMode || null), onboarding };
+    planDraft = { days: state.planDays > 1 ? state.planDays : 3, mode: onboarding ? null : (state.progressMode || null), onboarding, returnView: view };
     renderPlanSetup();
   }
 
@@ -833,12 +834,16 @@
     state.planConfigured = true;
     saveState();
     const onboarding = planDraft.onboarding;
+    const returnView = planDraft.returnView;
     planDraft = null;
     modalRoot.innerHTML = '';
     if (onboarding) {
       launchFireworks('grand');
     }
-    renderHome();
+    if (onboarding) renderHome();
+    else if (returnView === 'settings') renderSettings();
+    else if (returnView === 'plan') renderPlan();
+    else renderHome();
     showToast(state.progressMode === 'free' ? '🕊️ Modo Libre activado' : state.planDays === 1 ? '⚡ Plan: todo de una vez' : `📅 Plan guiado: ${state.planDays} días`);
   }
 
