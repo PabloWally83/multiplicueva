@@ -9,6 +9,7 @@ Aplicación web estática, en español, para que un niño de 8 años practique l
 - Umbral de dominio del 80% para desbloquear el siguiente nivel.
 - Repetición espaciada de operaciones débiles y repaso inteligente.
 - En modo Libre, selección de una o varias tablas para repasar sin depender del progreso de los niveles.
+- En Repaso, explicación visual de las 10 operaciones de cada tabla: factores, suma repetida, resultado y ayuda para entender el patrón.
 - XP, estrellas, rachas, insignias, confeti y progreso visual.
 - Plan flexible: todas las tablas de una vez o distribuidas entre 2 y 10 días.
 - Resultados operación por operación al terminar cada desafío mixto.

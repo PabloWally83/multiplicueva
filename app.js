@@ -52,6 +52,8 @@
   let audioContext = null;
   let planDraft = null;
   let selectedReviewTables = Array.from({ length: TABLES }, (_, i) => i + 1);
+  let reviewExplanationTable = 1;
+  let reviewExplanationFactor = 1;
 
   const main = document.getElementById('main');
   const modalRoot = document.getElementById('modal-root');
@@ -613,6 +615,7 @@
           <div class="review-list">${list.map(([a,b]) => { const s=state.factStats[factKey(a,b)]||{}; const accuracy=(s.correct||s.wrong)?Math.round((s.correct||0)/((s.correct||0)+(s.wrong||0))*100):0; return `<div class="review-fact"><span>${a} × ${b}</span><span class="mastery">${accuracy ? `${accuracy}% de aciertos` : 'Nueva'}</span></div>`; }).join('')}</div>
           <button class="primary-btn full" data-action="start-review">Entrenar 10 cuentas</button>`}
       </section>
+      ${renderReviewExplanation(Array.from({ length: Math.max(1, state.unlocked) }, (_, i) => i + 1))}
       <section class="panel"><h3>¿Por qué funciona?</h3><p class="subtle">Una cuenta correcta vuelve más adelante. Si cuesta, regresa pronto. Así practicás más lo difícil sin repetir de más lo que ya sabés.</p></section>`;
   }
 
@@ -629,7 +632,36 @@
         <div class="review-selection-summary">${selected.length ? `<strong>${formatTables(selected)}</strong><span>${selectedFacts.length} cuentas disponibles${dueCount ? ` · ${dueCount} listas para reforzar` : ''}</span>` : '<strong>Elegí al menos una tabla</strong><span>Después vas a poder iniciar el repaso.</span>'}</div>
         <button class="primary-btn full" data-action="start-review" ${selected.length ? '' : 'disabled'}>Repasar ${quizLength('review')} cuentas</button>
       </section>
+      ${renderReviewExplanation(Array.from({ length: TABLES }, (_, i) => i + 1))}
       <section class="panel"><h3>Modo Libre</h3><p class="subtle">La selección no depende del mapa ni del orden de los niveles. Las cuentas que más cuestan tienen prioridad dentro de las tablas elegidas.</p></section>`;
+  }
+
+  function renderReviewExplanation(availableTables) {
+    if (!availableTables.includes(reviewExplanationTable)) reviewExplanationTable = availableTables[0] || 1;
+    reviewExplanationFactor = Math.max(1, Math.min(10, reviewExplanationFactor));
+    const table = reviewExplanationTable;
+    const factor = reviewExplanationFactor;
+    const result = table * factor;
+    const repeatedAddition = Array.from({ length: factor }, () => `<span class="number-group">${table}</span>`).join('<span aria-hidden="true">+</span>');
+    return `<section class="panel review-explanation-panel" id="review-explanation" aria-labelledby="review-explanation-title">
+      <div class="review-explanation-head"><div><p class="eyebrow">EXPLICACIONES PASO A PASO</p><h2 id="review-explanation-title">Entendé cada operación</h2><p class="subtle">Elegí una tabla y después una cuenta para ver cómo se forma el resultado.</p></div><span class="explanation-badge">${table} × ${factor} = ${result}</span></div>
+      <p class="review-control-label">Tabla</p>
+      <div class="explanation-table-grid" role="group" aria-label="Tabla que querés entender">
+        ${availableTables.map(n => `<button class="explanation-choice ${n === table ? 'selected' : ''}" data-action="review-explain-table" data-level="${n}" aria-pressed="${n === table}">Tabla ${n}</button>`).join('')}
+      </div>
+      <p class="review-control-label">Operación</p>
+      <div class="explanation-factor-grid" role="group" aria-label="Operación de la tabla del ${table}">
+        ${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<button class="explanation-choice factor-choice ${n === factor ? 'selected' : ''}" data-action="review-explain-factor" data-value="${n}" aria-pressed="${n === factor}">× ${n}</button>`).join('')}
+      </div>
+      <article class="review-explanation-card" aria-live="polite">
+        <div class="mascot"><span>${table}</span></div>
+        <p class="eyebrow">TABLA DEL ${table} · REPETIR ${factor} ${factor === 1 ? 'VEZ' : 'VECES'}</p>
+        <div class="fact-big factor-equation"><span class="factor-block factor-table"><span>${table}</span><small>NÚMERO QUE REPETIMOS</small></span><b>×</b><span class="factor-block factor-times"><span>${factor}</span><small>CANTIDAD DE VECES</small></span><b>=</b><span class="fact-result">${result}</span></div>
+        <div class="number-groups">${repeatedAddition}</div>
+        <h2>${lessonTip(table, factor)}</h2>
+        <p class="factor-sentence">Multiplicamos <strong class="table-color">${table}</strong> por <strong class="times-color">${factor}</strong>:<br>repetimos el <strong class="table-color">${table}</strong>, <strong class="times-color">${factor} ${factor === 1 ? 'vez' : 'veces'}</strong>.</p>
+      </article>
+    </section>`;
   }
 
   function startReview() {
@@ -894,10 +926,13 @@
       'start-review': startReview,
       'toggle-review-table': () => {
         selectedReviewTables = selectedReviewTables.includes(n) ? selectedReviewTables.filter(table => table !== n) : [...selectedReviewTables, n];
+        if (selectedReviewTables.includes(n)) reviewExplanationTable = n;
         renderReview();
       },
       'review-select-all': () => { selectedReviewTables = Array.from({ length: TABLES }, (_, i) => i + 1); renderReview(); },
       'review-clear': () => { selectedReviewTables = []; renderReview(); },
+      'review-explain-table': () => { reviewExplanationTable = n; renderReview(); },
+      'review-explain-factor': () => { reviewExplanationFactor = Number(button.dataset.value); renderReview(); },
       'lesson-next': () => completeLessonStep('next'),
       'lesson-back': () => completeLessonStep('back'),
       'exit-lesson': exitActivity,
