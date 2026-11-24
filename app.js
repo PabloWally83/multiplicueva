@@ -26,6 +26,7 @@
     sessionDate: localDateKey(),
     sound: true,
     animations: true,
+    darkMode: false,
     answerMode: 'choice',
     difficulty: 'normal',
     progressMode: 'guided',
@@ -57,6 +58,11 @@
 
   const main = document.getElementById('main');
   const modalRoot = document.getElementById('modal-root');
+
+  function applyTheme() {
+    document.documentElement.dataset.theme = state.darkMode ? 'dark' : 'light';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', state.darkMode ? '#151126' : '#176f73');
+  }
 
   function localDateKey(date = new Date()) {
     const y = date.getFullYear();
@@ -399,7 +405,7 @@
         <div class="question-card"><div class="question">${q.a} × ${q.b} = <span class="question-mark">?</span></div></div>
         ${state.answerMode === 'input'
           ? `<form class="manual-answer" data-quiz-form><label for="manual-value">Escribí el resultado</label><div><input id="manual-value" inputmode="numeric" pattern="[0-9]*" min="1" max="100" maxlength="3" autocomplete="off" aria-label="Resultado de ${q.a} por ${q.b}"><button type="submit" class="primary-btn">Comprobar</button></div></form>`
-          : `<div class="answers">${q.choices.map((answer, i) => `<button class="answer-btn" data-action="answer" data-value="${answer}" aria-label="Respuesta ${answer}"><small>${i + 1}</small>&nbsp; ${answer}</button>`).join('')}</div>`}
+          : `<div class="answers">${q.choices.map((answer, i) => `<div class="answer-option"><span class="answer-letter" aria-hidden="true">${String.fromCharCode(65 + i)}</span><button class="answer-btn" data-action="answer" data-value="${answer}" aria-label="Opción ${String.fromCharCode(65 + i)}: ${answer}">${answer}</button></div>`).join('')}</div>`}
         <div id="feedback-slot"></div>
       </div>
     </section>`;
@@ -679,8 +685,14 @@
   function renderPlan() {
     view = 'plan';
     setActiveNav('plan');
+    if (state.progressMode === 'free') {
+      main.innerHTML = `<div class="screen-head plan-heading"><div><h1>🕊️ Modo Libre</h1><p>No hay plan de aprendizaje ni selección de tiempo.</p></div><button class="secondary-btn compact" data-action="change-plan">Cambiar modo</button></div>
+        <section class="panel free-plan-panel"><div class="empty-state"><div>⚡</div><h2>Todo disponible de una</h2><p>Elegí cualquier nivel o tabla de repaso cuando quieras. No hay días, etapas de calendario ni bloqueos entre niveles.</p><button class="primary-btn" data-action="home">Elegir un nivel</button></div></section>
+        <section class="panel"><h3>¿Querés un recorrido paso a paso?</h3><p class="subtle">Cambiá a Guiado para elegir un ritmo y desbloquear los niveles en orden.</p><button class="secondary-btn" data-action="change-plan">Configurar modo Guiado</button></section>`;
+      return;
+    }
     const plan = buildPlan();
-    main.innerHTML = `<div class="screen-head plan-heading"><div><h1>📅 ${state.progressMode === 'free' ? 'Modo Libre' : plan.length === 1 ? 'Todo en una misión' : `Misión de ${plan.length} días`}</h1><p>${state.progressMode === 'free' ? 'Todos los niveles están disponibles. Este plan funciona como una guía opcional.' : plan.length === 1 ? 'Las 10 tablas están disponibles como un recorrido continuo.' : 'Las tablas se reparten de forma equilibrada, siempre en orden.'}</p></div><button class="secondary-btn compact" data-action="change-plan">Cambiar plan</button></div>
+    main.innerHTML = `<div class="screen-head plan-heading"><div><h1>📅 ${plan.length === 1 ? 'Todo en una misión' : `Misión de ${plan.length} días`}</h1><p>${plan.length === 1 ? 'Las 10 tablas están disponibles como un recorrido continuo.' : 'Las tablas se reparten de forma equilibrada, siempre en orden.'}</p></div><button class="secondary-btn compact" data-action="change-plan">Cambiar plan</button></div>
       <div class="plan-grid">
         ${plan.map((tables, index) => dayCard(index + 1, planTitle(index, plan.length), planText(index, plan.length), tables)).join('')}
       </div>
@@ -759,7 +771,8 @@
       </div></section>
       <section class="panel"><div class="settings-row"><span><strong>Sonidos</strong><br><small class="subtle">Melodías y efectos al responder</small></span><button class="toggle ${state.sound ? 'on' : ''}" data-action="toggle-sound" role="switch" aria-checked="${state.sound}"><span></span></button></div>
         <div class="settings-row"><span><strong>Animaciones</strong><br><small class="subtle">Fuegos artificiales y movimientos</small></span><button class="toggle ${state.animations ? 'on' : ''}" data-action="toggle-animations" role="switch" aria-checked="${state.animations}"><span></span></button></div>
-        <div class="settings-row"><span><strong>Plan de aprendizaje</strong><br><small class="subtle">${state.planDays === 1 ? 'Todo de una vez' : `Distribuido en ${state.planDays} días`}</small></span><button class="secondary-btn compact" data-action="change-plan">Cambiar</button></div>
+        <div class="settings-row"><span><strong>Modo oscuro</strong><br><small class="subtle">Usa colores oscuros en toda la aplicación</small></span><button class="toggle ${state.darkMode ? 'on' : ''}" data-action="toggle-dark-mode" role="switch" aria-checked="${state.darkMode}"><span></span></button></div>
+        ${state.progressMode === 'guided' ? `<div class="settings-row"><span><strong>Plan de aprendizaje</strong><br><small class="subtle">${state.planDays === 1 ? 'Todo de una vez' : `Distribuido en ${state.planDays} días`}</small></span><button class="secondary-btn compact" data-action="change-plan">Cambiar</button></div>` : ''}
         <div class="settings-row"><span><strong>Reiniciar aventura</strong><br><small class="subtle">Borra el progreso de este dispositivo</small></span><button class="danger-btn" data-action="confirm-reset">Reiniciar</button></div>
       </section>`;
   }
@@ -779,37 +792,44 @@
   }
 
   function showPlanSetup(onboarding = false) {
-    planDraft = { days: state.planDays >= 1 ? state.planDays : 3, mode: state.progressMode || 'guided', onboarding };
+    planDraft = { days: state.planDays > 1 ? state.planDays : 3, mode: onboarding ? null : (state.progressMode || null), onboarding };
     renderPlanSetup();
   }
 
   function renderPlanSetup() {
     const days = planDraft.days;
-    const distribution = buildPlan(days);
+    const guided = planDraft.mode === 'guided';
+    const free = planDraft.mode === 'free';
+    const distribution = guided ? buildPlan(days) : [];
     modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal-card plan-modal" role="dialog" aria-modal="true" aria-labelledby="plan-modal-title">
-      <div class="plan-modal-icon" aria-hidden="true">📅</div><p class="eyebrow">ANTES DE EMPEZAR</p><h2 id="plan-modal-title">¿Cómo quieren organizar la aventura?</h2><p>El contenido es el mismo; pueden avanzar en orden o elegir libremente.</p>
+      <div class="plan-modal-icon" aria-hidden="true">${free ? '🕊️' : '📅'}</div><p class="eyebrow">${planDraft.onboarding ? 'ANTES DE EMPEZAR' : 'CONFIGURACIÓN DEL RECORRIDO'}</p><h2 id="plan-modal-title">¿Cómo quieren organizar la aventura?</h2><p>Primero elegí el modo. El ritmo solo se configura en el modo Guiado.</p>
       <h3 class="plan-section-title">Modo de recorrido</h3>
       <div class="plan-options">
         <button class="plan-option ${planDraft.mode === 'guided' ? 'selected' : ''}" data-action="choose-progression-mode" data-value="guided" aria-pressed="${planDraft.mode === 'guided'}"><span>🗺️</span><strong>Guiado</strong><small>Los niveles se desbloquean en orden.</small></button>
         <button class="plan-option ${planDraft.mode === 'free' ? 'selected' : ''}" data-action="choose-progression-mode" data-value="free" aria-pressed="${planDraft.mode === 'free'}"><span>🕊️</span><strong>Libre</strong><small>Cualquier nivel y repaso, sin bloqueos.</small></button>
       </div>
-      <h3 class="plan-section-title">Ritmo sugerido</h3>
+      ${guided ? `<div class="guided-plan-fields"><h3 class="plan-section-title">Ritmo sugerido</h3>
       <div class="plan-options">
         <button class="plan-option ${days === 1 ? 'selected' : ''}" data-action="choose-plan" data-value="1" aria-pressed="${days === 1}"><span>⚡</span><strong>Todo de una vez</strong><small>Una misión con las 10 tablas.</small></button>
         <button class="plan-option ${days > 1 ? 'selected' : ''}" data-action="choose-plan" data-value="3" aria-pressed="${days > 1}"><span>🌈</span><strong>En varios días</strong><small>Un poco cada día.</small></button>
       </div>
       ${days > 1 ? `<label class="days-label" for="plan-days">Cantidad de días</label><select id="plan-days" class="days-select" data-action="select-plan-days">${Array.from({ length: 9 }, (_, i) => i + 2).map(n => `<option value="${n}" ${n === days ? 'selected' : ''}>${n} días</option>`).join('')}</select>` : ''}
-      <div class="plan-preview"><strong>Así queda:</strong> ${distribution.map((tables, i) => `<span>${days === 1 ? 'Misión' : `Día ${i + 1}`}: ${tables.join(', ')}</span>`).join('')}</div>
-      <button class="primary-btn full" data-action="save-plan">${planDraft.onboarding ? '¡Empezar aventura!' : 'Guardar plan'}</button>
+      <div class="plan-preview"><strong>Así queda:</strong> ${distribution.map((tables, i) => `<span>${days === 1 ? 'Misión' : `Día ${i + 1}`}: ${tables.join(', ')}</span>`).join('')}</div></div>` : free ? '<div class="free-mode-summary"><strong>⚡ Todo disponible de una</strong><span>Sin plan, sin selección de tiempo y sin niveles bloqueados.</span></div>' : '<p class="mode-first-hint">Elegí Libre o Guiado para continuar.</p>'}
+      <button class="primary-btn full" data-action="save-plan" ${planDraft.mode ? '' : 'disabled'}>${planDraft.onboarding ? (free ? '¡Empezar en modo Libre!' : '¡Empezar aventura!') : 'Guardar configuración'}</button>
       ${planDraft.onboarding ? '' : '<button class="link-btn" data-action="close-modal" style="margin-top:16px">Cancelar</button>'}
     </section></div>`;
   }
 
   function savePlan() {
+    if (!planDraft?.mode) return;
     const select = document.getElementById('plan-days');
-    state.planDays = select ? Number(select.value) : planDraft.days;
     state.progressMode = planDraft.mode;
-    if (state.progressMode === 'guided') syncGuidedUnlock();
+    if (state.progressMode === 'free') {
+      state.planDays = 1;
+    } else {
+      state.planDays = select ? Number(select.value) : planDraft.days;
+      syncGuidedUnlock();
+    }
     state.planConfigured = true;
     saveState();
     const onboarding = planDraft.onboarding;
@@ -817,7 +837,6 @@
     modalRoot.innerHTML = '';
     if (onboarding) {
       launchFireworks('grand');
-      playTone('win');
     }
     renderHome();
     showToast(state.progressMode === 'free' ? '🕊️ Modo Libre activado' : state.planDays === 1 ? '⚡ Plan: todo de una vez' : `📅 Plan guiado: ${state.planDays} días`);
@@ -834,6 +853,7 @@
     }
     state.playerName = name.slice(0, 16);
     saveState();
+    playTone('win');
     showPlanSetup(true);
   }
 
@@ -947,16 +967,24 @@
       'set-answer-mode': () => { state.answerMode = button.dataset.value; saveState(); renderSettings(); showToast(state.answerMode === 'choice' ? '🔢 Respuestas con opciones' : '✏️ Respuestas escritas'); },
       'set-difficulty': () => { state.difficulty = button.dataset.value; saveState(); renderSettings(); showToast(`Nivel ${difficultyConfig().label}`); },
       'set-progress-mode': () => {
-        state.progressMode = button.dataset.value === 'free' ? 'free' : 'guided';
-        if (state.progressMode === 'guided') syncGuidedUnlock();
+        if (button.dataset.value === 'guided') {
+          showPlanSetup(false);
+          planDraft.mode = 'guided';
+          renderPlanSetup();
+          return;
+        }
+        state.progressMode = 'free';
+        state.planDays = 1;
+        state.planConfigured = true;
         saveState();
         renderSettings();
-        showToast(state.progressMode === 'free' ? '🕊️ Modo Libre activado' : '🗺️ Modo Guiado activado');
+        showToast('🕊️ Modo Libre activado · todo disponible');
       },
       'toggle-sound': () => { state.sound = !state.sound; saveState(); renderSettings(); if (state.sound) playTone('good'); },
       'toggle-animations': () => { state.animations = !state.animations; saveState(); renderSettings(); },
+      'toggle-dark-mode': () => { state.darkMode = !state.darkMode; applyTheme(); saveState(); renderSettings(); },
       'confirm-reset': confirmReset,
-      'reset-game': () => { state = defaultState(); planDraft = null; localStorage.removeItem(STORAGE_KEY); modalRoot.innerHTML = ''; renderHome(); showWelcome(); }
+      'reset-game': () => { state = defaultState(); planDraft = null; localStorage.removeItem(STORAGE_KEY); applyTheme(); modalRoot.innerHTML = ''; renderHome(); showWelcome(); }
     };
     actions[action]?.();
   });
@@ -981,8 +1009,8 @@
   });
 
   document.addEventListener('keydown', event => {
-    if (view === 'quiz' && state.answerMode === 'choice' && !quiz?.answered && ['1','2','3','4'].includes(event.key)) {
-      const button = document.querySelectorAll('.answer-btn')[Number(event.key) - 1];
+    if (view === 'quiz' && state.answerMode === 'choice' && !quiz?.answered && ['a','b','c','d'].includes(event.key.toLowerCase())) {
+      const button = document.querySelectorAll('.answer-btn')[event.key.toLowerCase().charCodeAt(0) - 97];
       button?.click();
     } else if (view === 'quiz' && quiz?.answered && event.key === 'Enter') {
       document.querySelector('[data-action="next-question"]')?.click();
@@ -997,6 +1025,7 @@
   // Small public surface used by automated tests; gameplay stays dependency-free.
   window.MultiplyEngine = { defaultState, makeQuestion, buildQuestionSet, buildPlan, shuffle, factKey, PASS_SCORE, DIFFICULTIES };
 
+  applyTheme();
   updateVisitStreak();
   updateTopbar();
   renderHome();
