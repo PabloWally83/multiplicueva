@@ -1,13 +1,14 @@
-# La MultipliCueva
+# Multiplica Aventura
 
-Aplicación web estática, en español, para que un niño de 8 años practique las tablas del 1 al 10 dentro de una cueva amigable llena de cámaras, cristales y desafíos.
+Aplicación web estática, en español, para que un niño de 8 años practique las tablas del 1 al 10 como un juego.
 
 ## Qué incluye
 
-- Progresión bloqueada: una tabla por nivel.
+- Dos modos de recorrido: **Guiado**, con progresión bloqueada, y **Libre**, para elegir cualquier nivel sin completar los anteriores.
 - Tres etapas: descubrimiento, práctica individual y desafío combinado.
 - Umbral de dominio del 80% para desbloquear el siguiente nivel.
 - Repetición espaciada de operaciones débiles y repaso inteligente.
+- En modo Libre, selección de una o varias tablas para repasar sin depender del progreso de los niveles.
 - XP, estrellas, rachas, insignias, confeti y progreso visual.
 - Plan flexible: todas las tablas de una vez o distribuidas entre 2 y 10 días.
 - Resultados operación por operación al terminar cada desafío mixto.

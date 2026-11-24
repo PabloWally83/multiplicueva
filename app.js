@@ -26,9 +26,9 @@
     sessionDate: localDateKey(),
     sound: true,
     animations: true,
-    darkMode: false,
     answerMode: 'choice',
     difficulty: 'normal',
+    progressMode: 'guided',
     planConfigured: false,
     planDays: 3,
     unlocked: 1,
@@ -51,16 +51,10 @@
   let quiz = null;
   let audioContext = null;
   let planDraft = null;
+  let selectedReviewTables = Array.from({ length: TABLES }, (_, i) => i + 1);
 
   const main = document.getElementById('main');
   const modalRoot = document.getElementById('modal-root');
-
-  function applyTheme() {
-    const dark = state.darkMode === true;
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#121b24' : '#176f73');
-  }
 
   function localDateKey(date = new Date()) {
     const y = date.getFullYear();
@@ -174,18 +168,19 @@
     const done = completedCount();
     const goal = Math.min(3, state.sessionsToday);
     const target = todayTarget();
+    const freeMode = state.progressMode === 'free';
     const nextLevel = Math.min(TABLES, state.unlocked);
     const levels = Array.from({ length: TABLES }, (_, i) => {
       const n = i + 1;
       const l = levelState(n);
-      const isLocked = n > state.unlocked;
+      const isLocked = !freeMode && n > state.unlocked;
       const statusClass = l.completed ? 'done' : isLocked ? 'locked' : n === nextLevel ? 'current' : '';
       const icon = l.completed ? '✓' : isLocked ? '🔒' : n;
-      const subtitle = l.completed ? `Iluminada · Mejor ${l.challengeBest}%` : isLocked ? 'Abrí la cámara anterior' : stageSubtitle(n);
-      const meta = l.completed ? '<strong>💎💎💎</strong><small>completa</small>' : isLocked ? '<strong>—</strong><small>cerrada</small>' : `<strong>${levelProgress(n)}%</strong><small>explorado</small>`;
+      const subtitle = l.completed ? `Dominada · Mejor ${l.challengeBest}%` : isLocked ? 'Completá el nivel anterior' : stageSubtitle(n);
+      const meta = l.completed ? '<strong>⭐⭐⭐</strong><small>completo</small>' : isLocked ? '<strong>—</strong><small>bloqueado</small>' : `<strong>${levelProgress(n)}%</strong><small>progreso</small>`;
       return `<button class="level-card ${statusClass}" data-action="open-level" data-level="${n}" ${isLocked ? 'disabled' : ''} aria-label="Tabla del ${n}: ${subtitle}">
         <span class="level-orb">${icon}</span>
-        <span class="level-info"><h3>Cámara ${n} · Tabla del ${n}</h3><p>${subtitle}</p></span>
+        <span class="level-info"><h3>Nivel ${n} · Tabla del ${n}</h3><p>${subtitle}</p></span>
         <span class="level-meta">${meta}</span>
       </button>`;
     }).join('');
@@ -193,23 +188,23 @@
     main.innerHTML = `
       <section class="hero">
         <div class="hero-row">
-          <div><p class="eyebrow">${target.totalDays === 1 ? 'EXPEDICIÓN COMPLETA' : `TRAMO ${target.day} DE ${target.totalDays}`}</p><h1>¡Hola, ${escapeHtml(state.playerName || 'explorador')}!</h1><p>${done === TABLES ? '¡Iluminaste toda la MultipliCueva! Seguí repasando para mantener cada tabla brillante.' : `Tu misión: iluminar ${formatTables(target.tables)}.`}</p></div>
+          <div><p class="eyebrow">${freeMode ? 'MODO LIBRE' : target.totalDays === 1 ? 'MISIÓN COMPLETA' : `ETAPA ${target.day} DE ${target.totalDays}`}</p><h1>¡Hola, ${escapeHtml(state.playerName || 'campeón')}!</h1><p>${done === TABLES ? '¡Dominaste todos los mundos! Seguí repasando para que no se escape ninguna tabla.' : freeMode ? 'Elegí cualquier nivel y avanzá en el orden que prefieras.' : `Tu misión: conquistar ${formatTables(target.tables)}.`}</p></div>
           <div class="goal-ring" style="--progress:${goal * 120}deg"><div class="goal-ring-inner"><strong>${goal}/3</strong><small>SESIONES</small></div></div>
         </div>
       </section>
       <section class="daily-card">
-        <span class="daily-icon" aria-hidden="true">💎</span>
-        <div><h3>Meta diaria: encender 3 cristales</h3><p>${goal < 3 ? `Faltan ${3 - goal}. Descansá entre cada sesión.` : '¡Cristales encendidos! Tu cerebro hizo un gran trabajo.'}</p></div>
+        <span class="daily-icon" aria-hidden="true">🎯</span>
+        <div><h3>Meta diaria: 3 sesiones cortas</h3><p>${goal < 3 ? `Faltan ${3 - goal}. Descansá entre cada una.` : '¡Meta cumplida! Tu cerebro hizo un gran trabajo.'}</p></div>
         <div class="mini-progress" aria-label="${goal} de 3 sesiones"><span style="width:${goal / 3 * 100}%"></span></div>
       </section>
-      <div class="section-head"><div><h2>Mapa de la MultipliCueva</h2><p>Explorá → practicá → iluminá cada cámara</p></div><button class="link-btn" data-action="plan">Ver expedición</button></div>
-      <section class="level-map" aria-label="Cámaras de las tablas">${levels}</section>`;
+      <div class="section-head"><div><h2>Tu mapa de aventura</h2><p>${freeMode ? 'Modo Libre · todos los niveles están disponibles' : 'Aprendé → practicá → superá el desafío'}</p></div><button class="link-btn" data-action="plan">Ver plan</button></div>
+      <section class="level-map" aria-label="Niveles de las tablas">${levels}</section>`;
     main.focus({ preventScroll: true });
   }
 
   function stageSubtitle(n) {
     const l = levelState(n);
-    if (!l.learned) return 'Primero exploramos cómo funciona';
+    if (!l.learned) return 'Primero descubrimos cómo funciona';
     if (l.practiceBest < currentPassScore()) return 'Práctica solo esta tabla';
     return 'Desafío mezclado con tablas anteriores';
   }
@@ -232,10 +227,10 @@
     modalRoot.innerHTML = `<div class="modal-backdrop">
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="level-title">
         <div class="mascot"><span>${n}</span></div>
-        <p class="eyebrow">CÁMARA ${n}</p><h2 id="level-title">Tabla del ${n}</h2>
-        <p>Para iluminar esta cámara, completá las tres etapas en orden.</p>
+        <p class="eyebrow">NIVEL ${n}</p><h2 id="level-title">Tabla del ${n}</h2>
+        <p>${state.progressMode === 'free' ? 'Elegiste este nivel libremente. Para dominarlo, completá sus tres etapas.' : 'Para dominarla, completá las tres etapas en orden.'}</p>
         <div class="stage-list">
-          ${stageItem('🔎', '1. Explorar', 'Mirá patrones y entendé cada cuenta.', l.learned, !l.learned, 'start-learn', n)}
+          ${stageItem('👀', '1. Descubrir', 'Mirá patrones y entendé cada cuenta.', l.learned, !l.learned, 'start-learn', n)}
            ${stageItem('🎯', '2. Practicar', `${quizLength('practice')} ejercicios solo de esta tabla · mínimo ${currentPassScore()}%.`, l.practiceBest >= currentPassScore(), l.learned && l.practiceBest < currentPassScore(), 'start-practice', n, l.practiceBest)}
            ${stageItem('🧠', '3. Desafío mixto', `${quizLength('challenge')} ejercicios con tablas del 1 al ${n} · mínimo ${currentPassScore()}%.`, l.completed, l.practiceBest >= currentPassScore() && !l.completed, 'start-challenge', n, l.challengeBest)}
         </div>
@@ -265,7 +260,7 @@
     view = 'lesson';
     setActiveNav('');
     main.innerHTML = `
-      <div class="screen-head"><button class="icon-btn" data-action="exit-lesson" aria-label="Salir">✕</button><div><h1>Explorá la tabla del ${table}</h1><p>Pista ${step + 1} de 10</p></div></div>
+      <div class="screen-head"><button class="icon-btn" data-action="exit-lesson" aria-label="Salir">✕</button><div><h1>Descubrí la tabla del ${table}</h1><p>Paso ${step + 1} de 10</p></div></div>
       <section class="lesson-card">
         <div class="mascot"><span>${table}</span></div>
         <p class="eyebrow">TABLA DEL ${table} · REPETIR ${factor} ${factor === 1 ? 'VEZ' : 'VECES'}</p>
@@ -313,7 +308,7 @@
       l.learned = true;
       state.xp += 10;
       saveState();
-      showToast('💎 ¡Cámara explorada! +10 XP');
+      showToast('📖 ¡Lección completa! +10 XP');
       startQuiz('practice', lesson.table);
     }
   }
@@ -344,8 +339,22 @@
       }
       return shuffle(questions, random);
     } else {
-      const facts = getReviewFacts();
-      const pool = facts.length ? facts : allUnlockedFacts();
+      const selectedTables = Array.isArray(table) ? table : null;
+      let pool;
+      if (selectedTables) {
+        const available = allFactsForTables(selectedTables);
+        const due = getReviewFacts().filter(([a]) => selectedTables.includes(a));
+        const seen = new Set();
+        pool = [...due, ...shuffle(available, random)].filter(([a, b]) => {
+          const key = factKey(a, b);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      } else {
+        const facts = getReviewFacts();
+        pool = facts.length ? facts : allUnlockedFacts();
+      }
       for (let i = 0; i < count; i++) {
         const fact = pool[i % pool.length] || [1, i % 10 + 1];
         questions.push(makeQuestion(fact[0], fact[1], random));
@@ -388,7 +397,7 @@
         <div class="question-card"><div class="question">${q.a} × ${q.b} = <span class="question-mark">?</span></div></div>
         ${state.answerMode === 'input'
           ? `<form class="manual-answer" data-quiz-form><label for="manual-value">Escribí el resultado</label><div><input id="manual-value" inputmode="numeric" pattern="[0-9]*" min="1" max="100" maxlength="3" autocomplete="off" aria-label="Resultado de ${q.a} por ${q.b}"><button type="submit" class="primary-btn">Comprobar</button></div></form>`
-          : `<div class="answers">${q.choices.map((answer, i) => `<div class="answer-option"><span class="answer-letter" aria-hidden="true">${String.fromCharCode(65 + i)}</span><button class="answer-btn" data-action="answer" data-value="${answer}" aria-label="Opción ${String.fromCharCode(65 + i)}: ${answer}">${answer}</button></div>`).join('')}</div>`}
+          : `<div class="answers">${q.choices.map((answer, i) => `<button class="answer-btn" data-action="answer" data-value="${answer}" aria-label="Respuesta ${answer}"><small>${i + 1}</small>&nbsp; ${answer}</button>`).join('')}</div>`}
         <div id="feedback-slot"></div>
       </div>
     </section>`;
@@ -474,7 +483,7 @@
       state.levels[table].challengeBest = Math.max(state.levels[table].challengeBest, score);
       if (passed) {
         state.levels[table].completed = true;
-        state.unlocked = Math.min(TABLES, Math.max(state.unlocked, table + 1));
+        syncGuidedUnlock();
       }
     }
     state.stars += earnedStars;
@@ -492,11 +501,11 @@
     const mode = quiz.mode;
     let title;
     if (mode === 'review') title = score >= 80 ? '¡Repaso completado!' : '¡Tu memoria se está entrenando!';
-    else title = passed ? (mode === 'challenge' ? '¡Cámara iluminada!' : '¡Práctica aprobada!') : '¡Una vuelta más!';
+    else title = passed ? (mode === 'challenge' ? '¡Nivel superado!' : '¡Práctica aprobada!') : '¡Una vuelta más!';
     const message = mode === 'review'
       ? 'Cada repaso hace que las respuestas aparezcan más rápido.'
       : passed
-        ? (mode === 'practice' ? 'Ahora podés probar el desafío con tablas mezcladas.' : quiz.table === TABLES ? '¡Iluminaste las 10 cámaras! Sos una leyenda de la multiplicación.' : `Abriste la cámara de la tabla del ${quiz.table + 1}.`)
+        ? (mode === 'practice' ? 'Ahora podés probar el desafío con tablas mezcladas.' : completedCount() === TABLES ? '¡Dominaste las 10 tablas! Sos una leyenda de la multiplicación.' : state.progressMode === 'free' ? `Completaste la tabla del ${quiz.table}. En modo Libre podés elegir cualquier otro nivel.` : `Desbloqueaste la tabla del ${quiz.table + 1}.`)
          : `Necesitás ${currentPassScore()}%. Repasaremos tus errores para que el próximo intento sea mejor.`;
     main.innerHTML = `<section class="result-card">
       <div class="result-emoji" aria-hidden="true">${passed ? (score === 100 ? '👑' : '🎉') : '💪'}</div>
@@ -517,10 +526,10 @@
   }
 
   function resultActions(score, passed) {
-    if (quiz.mode === 'review') return '<button class="primary-btn full" data-action="home">Volver a la cueva</button>';
-    if (!passed) return `<button class="primary-btn full" data-action="retry-quiz">Practicar errores</button><button class="link-btn" data-action="home" style="margin-top:18px">Volver a la cueva</button>`;
+    if (quiz.mode === 'review') return '<button class="primary-btn full" data-action="home">Volver al mapa</button>';
+    if (!passed) return `<button class="primary-btn full" data-action="retry-quiz">Practicar errores</button><button class="link-btn" data-action="home" style="margin-top:18px">Volver al mapa</button>`;
     if (quiz.mode === 'practice') return `<button class="primary-btn full" data-action="start-challenge" data-level="${quiz.table}">Ir al desafío mixto</button><button class="link-btn" data-action="home" style="margin-top:18px">Hacer una pausa</button>`;
-    return `<button class="primary-btn full" data-action="home">${quiz.table === TABLES ? 'Ver la cueva completa' : 'Explorar la próxima cámara'}</button>`;
+    return `<button class="primary-btn full" data-action="home">${completedCount() === TABLES ? 'Ver mi mapa completo' : state.progressMode === 'free' ? 'Elegir otro nivel' : 'Descubrir el próximo nivel'}</button>`;
   }
 
   function retryQuiz() {
@@ -562,8 +571,18 @@
   }
 
   function allUnlockedFacts() {
-    const max = Math.max(1, state.unlocked - (state.levels[state.unlocked]?.completed ? 0 : 1));
+    const max = state.progressMode === 'free' ? TABLES : Math.max(1, state.unlocked - (state.levels[state.unlocked]?.completed ? 0 : 1));
     return Array.from({ length: max }, (_, a) => Array.from({ length: 10 }, (_, b) => [a + 1, b + 1])).flat();
+  }
+
+  function allFactsForTables(tables) {
+    return tables.flatMap(a => Array.from({ length: 10 }, (_, b) => [a, b + 1]));
+  }
+
+  function syncGuidedUnlock() {
+    let next = 1;
+    while (next <= TABLES && levelState(next).completed) next++;
+    state.unlocked = Math.min(TABLES, next);
   }
 
   function pickWeakFact(maxTable, random = Math.random, restrictMax = maxTable) {
@@ -578,11 +597,15 @@
   function renderReview() {
     view = 'review';
     setActiveNav('review');
+    if (state.progressMode === 'free') {
+      renderFreeReview();
+      return;
+    }
     const facts = getReviewFacts();
     const fallback = allUnlockedFacts().slice(0, 5);
     const list = (facts.length ? facts : fallback).slice(0, 8);
     const masteredTables = completedCount();
-    main.innerHTML = `<div class="screen-head"><div><h1>🦇 Eco de memoria</h1><p>Repasos cortos que vuelven justo cuando tu cerebro los necesita.</p></div></div>
+    main.innerHTML = `<div class="screen-head"><div><h1>🧠 Gimnasio de memoria</h1><p>Repasos cortos justo cuando tu cerebro los necesita.</p></div></div>
       <section class="panel">
         ${masteredTables === 0 ? `<div class="empty-state"><div>🌱</div><h2>Primero, aprendé la tabla del 1</h2><p>Después de practicarla aparecerán acá las cuentas para reforzar.</p><button class="primary-btn" data-action="home">Ir al mapa</button></div>` : `
           <h2>${facts.length ? `${facts.length} ${facts.length === 1 ? 'cuenta lista' : 'cuentas listas'} para repasar` : '¡Tu memoria está al día!'}</h2>
@@ -593,11 +616,39 @@
       <section class="panel"><h3>¿Por qué funciona?</h3><p class="subtle">Una cuenta correcta vuelve más adelante. Si cuesta, regresa pronto. Así practicás más lo difícil sin repetir de más lo que ya sabés.</p></section>`;
   }
 
+  function renderFreeReview() {
+    const selected = selectedReviewTables.slice().sort((a, b) => a - b);
+    const selectedFacts = allFactsForTables(selected);
+    const dueCount = getReviewFacts().filter(([a]) => selected.includes(a)).length;
+    main.innerHTML = `<div class="screen-head"><div><h1>🧠 Repaso libre</h1><p>Elegí una o varias tablas. No hace falta completar niveles anteriores.</p></div></div>
+      <section class="panel">
+        <div class="review-picker-head"><div><h2>¿Qué querés repasar?</h2><p class="subtle">Podés combinar las tablas que quieras.</p></div><div><button class="link-btn" data-action="review-select-all">Todas</button><button class="link-btn" data-action="review-clear">Limpiar</button></div></div>
+        <div class="review-table-grid" role="group" aria-label="Tablas para repasar">
+          ${Array.from({ length: TABLES }, (_, i) => i + 1).map(n => `<button class="review-table-choice ${selected.includes(n) ? 'selected' : ''}" data-action="toggle-review-table" data-level="${n}" aria-pressed="${selected.includes(n)}"><span>×${n}</span><small>Tabla del ${n}</small></button>`).join('')}
+        </div>
+        <div class="review-selection-summary">${selected.length ? `<strong>${formatTables(selected)}</strong><span>${selectedFacts.length} cuentas disponibles${dueCount ? ` · ${dueCount} listas para reforzar` : ''}</span>` : '<strong>Elegí al menos una tabla</strong><span>Después vas a poder iniciar el repaso.</span>'}</div>
+        <button class="primary-btn full" data-action="start-review" ${selected.length ? '' : 'disabled'}>Repasar ${quizLength('review')} cuentas</button>
+      </section>
+      <section class="panel"><h3>Modo Libre</h3><p class="subtle">La selección no depende del mapa ni del orden de los niveles. Las cuentas que más cuestan tienen prioridad dentro de las tablas elegidas.</p></section>`;
+  }
+
+  function startReview() {
+    if (state.progressMode === 'free') {
+      if (!selectedReviewTables.length) {
+        showToast('Elegí al menos una tabla');
+        return;
+      }
+      startQuiz('review', [...selectedReviewTables]);
+      return;
+    }
+    startQuiz('review', Math.max(1, state.unlocked - 1));
+  }
+
   function renderPlan() {
     view = 'plan';
     setActiveNav('plan');
     const plan = buildPlan();
-    main.innerHTML = `<div class="screen-head plan-heading"><div><h1>🧭 ${plan.length === 1 ? 'Toda la cueva en una expedición' : `Expedición de ${plan.length} días`}</h1><p>${plan.length === 1 ? 'Las 10 cámaras están disponibles como un recorrido continuo.' : 'Las cámaras se reparten de forma equilibrada, siempre en orden.'}</p></div><button class="secondary-btn compact" data-action="change-plan">Cambiar plan</button></div>
+    main.innerHTML = `<div class="screen-head plan-heading"><div><h1>📅 ${state.progressMode === 'free' ? 'Modo Libre' : plan.length === 1 ? 'Todo en una misión' : `Misión de ${plan.length} días`}</h1><p>${state.progressMode === 'free' ? 'Todos los niveles están disponibles. Este plan funciona como una guía opcional.' : plan.length === 1 ? 'Las 10 tablas están disponibles como un recorrido continuo.' : 'Las tablas se reparten de forma equilibrada, siempre en orden.'}</p></div><button class="secondary-btn compact" data-action="change-plan">Cambiar plan</button></div>
       <div class="plan-grid">
         ${plan.map((tables, index) => dayCard(index + 1, planTitle(index, plan.length), planText(index, plan.length), tables)).join('')}
       </div>
@@ -610,7 +661,7 @@
   }
 
   function planTitle(index, total) {
-    if (total === 1) return 'La cueva completa';
+    if (total === 1) return 'La aventura completa';
     if (index === 0) return 'Bases y confianza';
     if (index === total - 1) return 'El gran desafío';
     return 'Construir conexiones';
@@ -650,8 +701,8 @@
     view = 'rewards';
     setActiveNav('rewards');
     const accuracy = state.totalAnswers ? Math.round(state.totalCorrect / state.totalAnswers * 100) : 0;
-    main.innerHTML = `<div class="screen-head"><div><h1>💎 Cámara de tesoros</h1><p>Todo lo que encontraste con práctica y constancia.</p></div></div>
-      <section class="panel reward-summary"><div class="big">👑</div><div><p class="eyebrow">EXPLORADOR NIVEL ${completedCount() + 1}</p><h2>${escapeHtml(state.playerName || 'Explorador')}</h2><p class="subtle">${state.xp} XP · ${state.stars} estrellas · ${accuracy}% de aciertos</p></div></section>
+    main.innerHTML = `<div class="screen-head"><div><h1>🏆 Sala de premios</h1><p>Todo lo que lograste con práctica y constancia.</p></div></div>
+      <section class="panel reward-summary"><div class="big">👑</div><div><p class="eyebrow">AVENTURERO NIVEL ${completedCount() + 1}</p><h2>${escapeHtml(state.playerName || 'Jugador')}</h2><p class="subtle">${state.xp} XP · ${state.stars} estrellas · ${accuracy}% de aciertos</p></div></section>
       <div class="section-head"><div><h2>Insignias</h2><p>${state.badges.length} de ${badgeDefs.length} desbloqueadas</p></div></div>
       <section class="badge-grid">${badgeDefs.map(b => `<article class="badge ${state.badges.includes(b.id) ? '' : 'locked-badge'}"><div class="badge-icon">${b.icon}</div><h3>${b.title}</h3><p>${b.text}</p></article>`).join('')}</section>`;
   }
@@ -670,9 +721,12 @@
         ${settingChoice('normal', '🚀', 'Normal', '10–12 cuentas · 80%', state.difficulty, 'set-difficulty')}
         ${settingChoice('expert', '⚡', 'Experto', '12–15 cuentas · 90%', state.difficulty, 'set-difficulty')}
       </div><p class="setting-summary">Ahora: <strong>${config.label}</strong> · mínimo ${config.pass}% para avanzar.</p></section>
+      <section class="panel"><h2>Modo de recorrido</h2><p class="subtle">Define si los niveles se desbloquean en orden o se pueden elegir libremente.</p><div class="setting-choice-grid">
+        ${settingChoice('guided', '🗺️', 'Guiado', 'Completá un nivel para desbloquear el siguiente.', state.progressMode, 'set-progress-mode')}
+        ${settingChoice('free', '🕊️', 'Libre', 'Elegí cualquier nivel y cualquier tabla para repasar.', state.progressMode, 'set-progress-mode')}
+      </div></section>
       <section class="panel"><div class="settings-row"><span><strong>Sonidos</strong><br><small class="subtle">Melodías y efectos al responder</small></span><button class="toggle ${state.sound ? 'on' : ''}" data-action="toggle-sound" role="switch" aria-checked="${state.sound}"><span></span></button></div>
         <div class="settings-row"><span><strong>Animaciones</strong><br><small class="subtle">Fuegos artificiales y movimientos</small></span><button class="toggle ${state.animations ? 'on' : ''}" data-action="toggle-animations" role="switch" aria-checked="${state.animations}"><span></span></button></div>
-        <div class="settings-row"><span><strong>Modo oscuro</strong><br><small class="subtle">Cambia la app a colores oscuros</small></span><button class="toggle ${state.darkMode ? 'on' : ''}" data-action="toggle-dark-mode" role="switch" aria-label="Modo oscuro" aria-checked="${state.darkMode}"><span></span></button></div>
         <div class="settings-row"><span><strong>Plan de aprendizaje</strong><br><small class="subtle">${state.planDays === 1 ? 'Todo de una vez' : `Distribuido en ${state.planDays} días`}</small></span><button class="secondary-btn compact" data-action="change-plan">Cambiar</button></div>
         <div class="settings-row"><span><strong>Reiniciar aventura</strong><br><small class="subtle">Borra el progreso de este dispositivo</small></span><button class="danger-btn" data-action="confirm-reset">Reiniciar</button></div>
       </section>`;
@@ -693,7 +747,7 @@
   }
 
   function showPlanSetup(onboarding = false) {
-    planDraft = { days: state.planDays >= 1 ? state.planDays : 3, onboarding };
+    planDraft = { days: state.planDays >= 1 ? state.planDays : 3, mode: state.progressMode || 'guided', onboarding };
     renderPlanSetup();
   }
 
@@ -701,14 +755,20 @@
     const days = planDraft.days;
     const distribution = buildPlan(days);
     modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal-card plan-modal" role="dialog" aria-modal="true" aria-labelledby="plan-modal-title">
-       <div class="plan-modal-icon" aria-hidden="true">🧭</div><p class="eyebrow">ANTES DE ENTRAR</p><h2 id="plan-modal-title">¿Cómo quieren explorar la MultipliCueva?</h2><p>El contenido es el mismo; solo cambia cómo se reparte.</p>
+      <div class="plan-modal-icon" aria-hidden="true">📅</div><p class="eyebrow">ANTES DE EMPEZAR</p><h2 id="plan-modal-title">¿Cómo quieren organizar la aventura?</h2><p>El contenido es el mismo; pueden avanzar en orden o elegir libremente.</p>
+      <h3 class="plan-section-title">Modo de recorrido</h3>
       <div class="plan-options">
-        <button class="plan-option ${days === 1 ? 'selected' : ''}" data-action="choose-plan" data-value="1" aria-pressed="${days === 1}"><span>⚡</span><strong>Todo de una vez</strong><small>Una expedición por las 10 cámaras.</small></button>
-        <button class="plan-option ${days > 1 ? 'selected' : ''}" data-action="choose-plan" data-value="3" aria-pressed="${days > 1}"><span>🏕️</span><strong>En varios días</strong><small>Un tramo de la cueva cada día.</small></button>
+        <button class="plan-option ${planDraft.mode === 'guided' ? 'selected' : ''}" data-action="choose-progression-mode" data-value="guided" aria-pressed="${planDraft.mode === 'guided'}"><span>🗺️</span><strong>Guiado</strong><small>Los niveles se desbloquean en orden.</small></button>
+        <button class="plan-option ${planDraft.mode === 'free' ? 'selected' : ''}" data-action="choose-progression-mode" data-value="free" aria-pressed="${planDraft.mode === 'free'}"><span>🕊️</span><strong>Libre</strong><small>Cualquier nivel y repaso, sin bloqueos.</small></button>
+      </div>
+      <h3 class="plan-section-title">Ritmo sugerido</h3>
+      <div class="plan-options">
+        <button class="plan-option ${days === 1 ? 'selected' : ''}" data-action="choose-plan" data-value="1" aria-pressed="${days === 1}"><span>⚡</span><strong>Todo de una vez</strong><small>Una misión con las 10 tablas.</small></button>
+        <button class="plan-option ${days > 1 ? 'selected' : ''}" data-action="choose-plan" data-value="3" aria-pressed="${days > 1}"><span>🌈</span><strong>En varios días</strong><small>Un poco cada día.</small></button>
       </div>
       ${days > 1 ? `<label class="days-label" for="plan-days">Cantidad de días</label><select id="plan-days" class="days-select" data-action="select-plan-days">${Array.from({ length: 9 }, (_, i) => i + 2).map(n => `<option value="${n}" ${n === days ? 'selected' : ''}>${n} días</option>`).join('')}</select>` : ''}
       <div class="plan-preview"><strong>Así queda:</strong> ${distribution.map((tables, i) => `<span>${days === 1 ? 'Misión' : `Día ${i + 1}`}: ${tables.join(', ')}</span>`).join('')}</div>
-      <button class="primary-btn full" data-action="save-plan">${planDraft.onboarding ? '¡Empezar la expedición!' : 'Guardar plan'}</button>
+      <button class="primary-btn full" data-action="save-plan">${planDraft.onboarding ? '¡Empezar aventura!' : 'Guardar plan'}</button>
       ${planDraft.onboarding ? '' : '<button class="link-btn" data-action="close-modal" style="margin-top:16px">Cancelar</button>'}
     </section></div>`;
   }
@@ -716,6 +776,8 @@
   function savePlan() {
     const select = document.getElementById('plan-days');
     state.planDays = select ? Number(select.value) : planDraft.days;
+    state.progressMode = planDraft.mode;
+    if (state.progressMode === 'guided') syncGuidedUnlock();
     state.planConfigured = true;
     saveState();
     const onboarding = planDraft.onboarding;
@@ -726,7 +788,7 @@
       playTone('win');
     }
     renderHome();
-    showToast(state.planDays === 1 ? '⚡ Plan: todo de una vez' : `📅 Plan guardado: ${state.planDays} días`);
+    showToast(state.progressMode === 'free' ? '🕊️ Modo Libre activado' : state.planDays === 1 ? '⚡ Plan: todo de una vez' : `📅 Plan guiado: ${state.planDays} días`);
   }
 
   function startGame() {
@@ -735,17 +797,16 @@
     if (!name) {
       input.setAttribute('aria-invalid', 'true');
       input.focus();
-      showToast('Escribí el nombre del explorador');
+      showToast('Escribí el nombre del jugador');
       return;
     }
     state.playerName = name.slice(0, 16);
     saveState();
-    playTone('welcome');
     showPlanSetup(true);
   }
 
   function exitActivity() {
-    modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal-card" role="dialog" aria-modal="true"><div style="font-size:3rem">🤔</div><h2>¿Salir por ahora?</h2><p>El progreso de una práctica se guarda al terminarla.</p><button class="primary-btn full" data-action="home">Volver al mapa de la cueva</button><button class="link-btn" data-action="close-modal" style="margin-top:16px">Seguir jugando</button></section></div>`;
+    modalRoot.innerHTML = `<div class="modal-backdrop"><section class="modal-card" role="dialog" aria-modal="true"><div style="font-size:3rem">🤔</div><h2>¿Salir por ahora?</h2><p>El progreso de una práctica se guarda al terminarla.</p><button class="primary-btn full" data-action="home">Salir al mapa</button><button class="link-btn" data-action="close-modal" style="margin-top:16px">Seguir jugando</button></section></div>`;
   }
 
   function showToast(message) {
@@ -795,8 +856,7 @@
       const sequences = {
         good: [[659, 0, .10], [784, .08, .11], [988, .17, .18]],
         bad: [[294, 0, .14], [247, .13, .20]],
-        win: [[523, 0, .16], [659, .12, .16], [784, .24, .18], [1047, .40, .34]],
-        welcome: [[523, 0, .12], [659, .10, .13], [784, .21, .18]]
+        win: [[523, 0, .16], [659, .12, .16], [784, .24, .18], [1047, .40, .34]]
       };
       (sequences[type] || sequences.good).forEach(([frequency, delay, duration], i) => {
         const oscillator = audioContext.createOscillator();
@@ -831,7 +891,13 @@
       'start-learn': () => startLesson(n),
       'start-practice': () => startQuiz('practice', n),
       'start-challenge': () => startQuiz('challenge', n),
-      'start-review': () => startQuiz('review', Math.max(1, state.unlocked - 1)),
+      'start-review': startReview,
+      'toggle-review-table': () => {
+        selectedReviewTables = selectedReviewTables.includes(n) ? selectedReviewTables.filter(table => table !== n) : [...selectedReviewTables, n];
+        renderReview();
+      },
+      'review-select-all': () => { selectedReviewTables = Array.from({ length: TABLES }, (_, i) => i + 1); renderReview(); },
+      'review-clear': () => { selectedReviewTables = []; renderReview(); },
       'lesson-next': () => completeLessonStep('next'),
       'lesson-back': () => completeLessonStep('back'),
       'exit-lesson': exitActivity,
@@ -841,14 +907,21 @@
       'retry-quiz': retryQuiz,
       'change-plan': () => showPlanSetup(false),
       'choose-plan': () => { planDraft.days = Number(button.dataset.value) === 1 ? 1 : (planDraft.days > 1 ? planDraft.days : 3); renderPlanSetup(); },
+      'choose-progression-mode': () => { planDraft.mode = button.dataset.value; renderPlanSetup(); },
       'save-plan': savePlan,
       'set-answer-mode': () => { state.answerMode = button.dataset.value; saveState(); renderSettings(); showToast(state.answerMode === 'choice' ? '🔢 Respuestas con opciones' : '✏️ Respuestas escritas'); },
       'set-difficulty': () => { state.difficulty = button.dataset.value; saveState(); renderSettings(); showToast(`Nivel ${difficultyConfig().label}`); },
+      'set-progress-mode': () => {
+        state.progressMode = button.dataset.value === 'free' ? 'free' : 'guided';
+        if (state.progressMode === 'guided') syncGuidedUnlock();
+        saveState();
+        renderSettings();
+        showToast(state.progressMode === 'free' ? '🕊️ Modo Libre activado' : '🗺️ Modo Guiado activado');
+      },
       'toggle-sound': () => { state.sound = !state.sound; saveState(); renderSettings(); if (state.sound) playTone('good'); },
       'toggle-animations': () => { state.animations = !state.animations; saveState(); renderSettings(); },
-      'toggle-dark-mode': () => { state.darkMode = !state.darkMode; applyTheme(); saveState(); renderSettings(); },
       'confirm-reset': confirmReset,
-      'reset-game': () => { state = defaultState(); applyTheme(); planDraft = null; localStorage.removeItem(STORAGE_KEY); modalRoot.innerHTML = ''; renderHome(); showWelcome(); }
+      'reset-game': () => { state = defaultState(); planDraft = null; localStorage.removeItem(STORAGE_KEY); modalRoot.innerHTML = ''; renderHome(); showWelcome(); }
     };
     actions[action]?.();
   });
@@ -873,8 +946,8 @@
   });
 
   document.addEventListener('keydown', event => {
-    if (view === 'quiz' && state.answerMode === 'choice' && !quiz?.answered && ['a','b','c','d'].includes(event.key.toLowerCase())) {
-      const button = document.querySelectorAll('.answer-btn')[event.key.toLowerCase().charCodeAt(0) - 97];
+    if (view === 'quiz' && state.answerMode === 'choice' && !quiz?.answered && ['1','2','3','4'].includes(event.key)) {
+      const button = document.querySelectorAll('.answer-btn')[Number(event.key) - 1];
       button?.click();
     } else if (view === 'quiz' && quiz?.answered && event.key === 'Enter') {
       document.querySelector('[data-action="next-question"]')?.click();
@@ -889,7 +962,6 @@
   // Small public surface used by automated tests; gameplay stays dependency-free.
   window.MultiplyEngine = { defaultState, makeQuestion, buildQuestionSet, buildPlan, shuffle, factKey, PASS_SCORE, DIFFICULTIES };
 
-  applyTheme();
   updateVisitStreak();
   updateTopbar();
   renderHome();
